@@ -31,7 +31,7 @@ Layer = {neurons = {}, connections = {}}
 
 Network = {input = {}, layers = {}, output = {}}
 
---METHODS--
+--CONSTRUCTOR--
 
 function newNetwork()
     local n = {}
@@ -41,7 +41,113 @@ function newNetwork()
     return n
 end
 
+function newLayer(nbreNeurons, nbreInput)
+    local l = {}
+    l.biases = {}
+    l.weigth = {}
+
+    for i = 1, nbreNeurons, 1 do
+        l.biases[i] = 0 --*Init Biases
+        l.weigth[i] = {}
+        for j = 1, nbreInput, 1 do
+            local isNeg = math.random(0, 1)
+            if isNeg == 0 then isNeg = -1 end
+            l.weigth[i][j] = (math.random(1, 100) * 0.01) * isNeg
+        end
+    end
+    if #l.biases == #l.weigth and #l.biases ~= 0 then
+        console.log("VALID LAYER")
+        --console.log(table.concat(l.weigth[1], ", "))
+    end
+    return l
+end
+
+--METHODS--
+
+function getActivationOutput(network)
+    local currentInput = network.input
+    --console.log(#network.layers)
+    for i = 1, #network.layers, 1 do
+        network.output = forward(currentInput, network.layers[i].biases, network.layers[i].weigth)
+        currentInput = network.output
+    end
+        --console.log(#network.output)
+
+    network.output = softmax(network.output)
+
+    --console.log(#network.output)
+
+    return  network.output
+    
+end
+
+--MATH_FUNCTION--
+
+function forward(input, biases, weigth)
+    local output = {}
+        for i = 1, #weigth, 1 do
+            local sumOf = 0
+            for j = 1, #weigth[i], 1 do
+                sumOf = sumOf + (input[j] * weigth[i][j])
+            end
+            output[i] = sumOf + biases[i]
+        end
+    return output
+end
+
+function sum(input)
+    local acc = 0.0
+    for i = 1, #input, 1 do
+        acc = acc + input[i]
+    end
+    return acc
+end
+
+function max(input)
+    local maxValue = -0xfffffff0
+
+    for i = 1, #input, 1 do
+        if maxValue < input[i] then
+            maxValue = input[i]
+        end
+    end
+
+    return maxValue
+end
+
+function ReLU(input)
+    local output = {}
+    for i = 1, #input, 1 do
+        output[i] = math.max(0.0, input[i])
+    end
+    return output
+end
+
+function softmax(input)
+    local output = {}
+    local expOutput = {}
+    local maxValue = max(input)
+    local sumOf = 0
+    for i = 1, #input, 1 do
+        expOutput[i] = math.exp(input[i] - maxValue)
+        sumOf = sumOf + expOutput[i]
+    end
+
+    --console.log(sumOf)
+
+    for i = 1, #expOutput, 1 do
+        output[i] = expOutput[i] / sumOf
+    end
+    return output
+end
+
 --FUNCTIONS--
+
+function outputToControl(input) --! TO DO ASAP !!!
+    local controle = {}
+
+    return controle
+end
 
 function getInputsIndice(x, y)
 	return x + ((y-1) * WIDTH_INPUTS)
@@ -195,11 +301,17 @@ end
 --VARIABLES--
 
 NETWORK = newNetwork()
+NETWORK.layers[1] = newLayer(8, WIDTH_INPUTS * HEIGHT_INPUTS)
+
+NEURONS_SENSITIVITY = 0.3
 
 --SCRIPT--
+math.randomseed(os.time())
 
 console.log('AI STARTED')
 savestate.load(NOM_STATE)
+
+console.log(table.concat(softmax({4.8, 1.21, 2.385}), ", "))
 
 while true do
     local mario = memory.read_s16_le(0x94);
@@ -209,7 +321,13 @@ while true do
     NETWORK.input = getInputs()
     drawInput(NETWORK.input)
 
-    drawOutput({math.random(), math.random(), math.random(), math.random(), math.random(), math.random(), math.random(), math.random()})
+    local output = getActivationOutput(NETWORK)
+    console.log(NETWORK.output)
+    --console.log(table.concat(output, ", "))
+    --console.log(sum(NETWORK.output))
+    --console.log(table.concat(NETWORK.input, ", "))
+    
+    drawOutput(output)
     
     joypad.set({Right = true}, 1)
     emu.frameadvance()
