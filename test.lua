@@ -198,7 +198,7 @@ NETWORK = newNetwork()
 
 --SCRIPT--
 
-console.log('Hello World')
+console.log('AI STARTED')
 savestate.load(NOM_STATE)
 
 while true do
