@@ -210,7 +210,7 @@ function drawOutput(output)
     if #output == 8 then
         for i = 1, #output, 1 do
             local color = "gray"
-            if output[i] > 0.5 then
+            if output[i] > NEURONS_SENSITIVITY then
                 color = "white"
             end
             gui.drawRectangle(X_OUTPUT_ANCHOR, Y_OUTPUT_ANCHOR + (i * SIZE_HEIGTH_OUTPUT), SIZE_WIDTH_OUTPUT, SIZE_HEIGTH_OUTPUT, "black", color)
@@ -353,5 +353,6 @@ while true do
     if staticFrames >= MAX_STATIC_FRAMES then
         savestate.load(NOM_STATE)
         staticFrames = 0
+        fitness = 0
     end
 end
