@@ -11,6 +11,8 @@ TILE_SIZE = 16
 VIEW_WIDTH = WIDTH_INPUTS * TILE_SIZE
 VIEW_HEIGHT = HEIGHT_INPUTS * TILE_SIZE
 
+POPULATION_SIZE = 20
+
 NEURON_DISPLAY_SIZE = 4 
 X_NEURON_ANCHOR = 100
 Y_NEURON_ANCHOR = 25
@@ -20,10 +22,20 @@ SIZE_HEIGTH_OUTPUT = 10
 X_OUTPUT_ANCHOR = 200
 Y_OUTPUT_ANCHOR = 10
 
-CONTROLER_INPUT_STR = {'A', 'B', 'X', 'Y', 'Left', 'Right', 'Up', 'Down'}
-CONTROLER_INPUT = {A = false, B = false, X = false, Y = false, Left = false, Right = false, Up = false, Down = false}
+NBRE_OUTPUT = 8
+CONTROLER_INPUT_STR = {'A', 'B', 'X', 'Y', 'Up', 'Down', 'Left', 'Right'}
+CONTROLER_INPUT =   {
+                        {name = "P1 A"},
+                        {name = "P1 B"},
+                        {name = "P1 X"},
+                        {name = "P1 Y"},
+                        {name = "P1 Up"},
+                        {name = "P1 Down"},
+                        {name = "P1 Left"},
+                        {name = "P1 Right"} 
+                    }
 
-MAX_STATIC_FRAMES = 35
+MAX_STATIC_FRAMES = 100
 
 --CLASSES--
 
@@ -35,11 +47,24 @@ Network = {input = {}, layers = {}, output = {}}
 
 --CONSTRUCTOR--
 
+function newPopulation()
+    local p = {}
+    p.pop = {}
+    p.maxFitness = 0
+    for i = 1, POPULATION_SIZE, 1 do
+        p.pop[i] = newNetwork()
+        p.pop[i].layers[1] = newLayer(8, WIDTH_INPUTS * HEIGHT_INPUTS)
+    end
+
+    return p
+end
+
 function newNetwork()
     local n = {}
     n.input = {}
     n.layers = {}
     n.output = {}
+    n.fitness = 0
     return n
 end
 
@@ -56,10 +81,6 @@ function newLayer(nbreNeurons, nbreInput)
             if isNeg == 0 then isNeg = -1 end
             l.weigth[i][j] = (math.random(1, 100) * 0.01) * isNeg
         end
-    end
-    if #l.biases == #l.weigth and #l.biases ~= 0 then
-        console.log("VALID LAYER")
-        --console.log(table.concat(l.weigth[1], ", "))
     end
     return l
 end
@@ -146,13 +167,16 @@ end
 --FUNCTIONS--
 
 function outputToControl(input) --! TO DO ASAP @3ps1ll0n !!!
-    local i = 1
-    for k, v in pairs(CONTROLER_INPUT) do
-        CONTROLER_INPUT[k] = (input[i] > NEURONS_SENSITIVITY) -- Chesk if the output must be turned on
-        i = i + 1
+    local controlOutputs = {}
+    for i = 1, NBRE_OUTPUT, 1 do
+        controlOutputs[CONTROLER_INPUT[i].name] = (input[i] > NEURONS_SENSITIVITY) -- Chesk if the output must be turned on
     end
 
-    return CONTROLER_INPUT
+    if controlOutputs["P1 Left"] and controlOutputs["P1 Right"] then
+		controlOutputs["P1 Left"] = false
+	end
+
+    return controlOutputs
 end
 
 function getInputsIndice(x, y)
@@ -298,15 +322,14 @@ function getInputs()
             inScreen = inScreen + 1
         end
     end
-
-    gui.text(50, 33, inScreen)
-
     return inputs
 end
 
 --VARIABLES--
 
+local population = newPopulation()
 NETWORK = newNetwork()
+local currentBeing = 1 
 NETWORK.layers[1] = newLayer(8, WIDTH_INPUTS * HEIGHT_INPUTS)
 
 NEURONS_SENSITIVITY = 0.3
@@ -320,39 +343,52 @@ local staticFrames = 0
 math.randomseed(os.time())
 
 console.log('AI STARTED')
+--console.log( joypad.getimmediate() )
 savestate.load(NOM_STATE)
 
 while true do
     staticFrames = staticFrames + 1
+    local currentNetwork = population.pop[currentBeing]
     local mario = memory.read_s16_le(0x94);
     if mario > fitness then
         staticFrames = 0
         fitness = mario
     end
-    gui.text(50, 50, mario)
-    gui.text(50, 25, #getSprites())
-    --gui.drawRectangle(X_NEURON_ANCHOR, Y_NEURON_ANCHOR, NEURON_DISPLAY_SIZE, NEURON_DISPLAY_SIZE, "black", "white")
-    NETWORK.input = getInputs()
-    drawInput(NETWORK.input)
 
-    local output = getActivationOutput(NETWORK)
+    gui.text(50, 10, mario)
+    gui.text(50, 30, #getSprites())
+    gui.text(50, 50, currentBeing)
+    gui.text(50, 70, "maxFitness : " .. population.maxFitness)
+    
+    --gui.drawRectangle(X_NEURON_ANCHOR, Y_NEURON_ANCHOR, NEURON_DISPLAY_SIZE, NEURON_DISPLAY_SIZE, "black", "white")
+    currentNetwork.input = getInputs()
+    drawInput(currentNetwork.input)
+
+    local output = getActivationOutput(currentNetwork)
     --console.log(NETWORK.output)
     --console.log(table.concat(output, ", "))
     --console.log(sum(NETWORK.output))
     --console.log(table.concat(NETWORK.input, ", "))
     
-    joypad.set(outputToControl(output), 1)
+    local inp = {}
+    joypad.set(outputToControl(output))
     drawOutput(output)
 
     emu.frameadvance()
 
-    if memory.readbyte(0x13E0) == 62 then
-        savestate.load(NOM_STATE)
-    end
-
-    if staticFrames >= MAX_STATIC_FRAMES then
+    if memory.readbyte(0x13E0) == 62 or staticFrames >= MAX_STATIC_FRAMES then
         savestate.load(NOM_STATE)
         staticFrames = 0
-        fitness = 0
+
+        currentNetwork.fitness = fitness
+        if population.maxFitness < fitness then
+            population.maxFitness = fitness
+        end
+
+        if currentBeing < POPULATION_SIZE then
+            currentBeing = currentBeing + 1
+        else 
+            break
+        end
     end
 end
