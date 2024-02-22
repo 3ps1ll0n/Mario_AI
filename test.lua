@@ -355,10 +355,9 @@ while true do
         fitness = mario
     end
 
-    gui.text(50, 10, mario)
-    gui.text(50, 30, #getSprites())
-    gui.text(50, 50, currentBeing)
-    gui.text(50, 70, "maxFitness : " .. population.maxFitness)
+    gui.text(50, 10, "Max fitness : " .. population.maxFitness)
+    gui.text(50, 30, "Current fitness : " .. mario)
+    gui.text(50, 50, "Which individual : " .. currentBeing)
     
     --gui.drawRectangle(X_NEURON_ANCHOR, Y_NEURON_ANCHOR, NEURON_DISPLAY_SIZE, NEURON_DISPLAY_SIZE, "black", "white")
     currentNetwork.input = getInputs()
