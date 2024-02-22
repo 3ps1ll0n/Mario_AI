@@ -11,7 +11,6 @@ TILE_SIZE = 16
 VIEW_WIDTH = WIDTH_INPUTS * TILE_SIZE
 VIEW_HEIGHT = HEIGHT_INPUTS * TILE_SIZE
 
-
 NEURON_DISPLAY_SIZE = 4 
 X_NEURON_ANCHOR = 100
 Y_NEURON_ANCHOR = 25
@@ -21,7 +20,10 @@ SIZE_HEIGTH_OUTPUT = 10
 X_OUTPUT_ANCHOR = 200
 Y_OUTPUT_ANCHOR = 10
 
-CONTROLER_INPUT = {'A', 'B', 'X', 'Y', 'Up', 'Down', 'Left', 'Right'}
+CONTROLER_INPUT_STR = {'A', 'B', 'X', 'Y', 'Left', 'Right', 'Up', 'Down'}
+CONTROLER_INPUT = {A = false, B = false, X = false, Y = false, Left = false, Right = false, Up = false, Down = false}
+
+MAX_STATIC_FRAMES = 35
 
 --CLASSES--
 
@@ -143,10 +145,14 @@ end
 
 --FUNCTIONS--
 
-function outputToControl(input) --! TO DO ASAP !!!
-    local controle = {}
+function outputToControl(input) --! TO DO ASAP @3ps1ll0n !!!
+    local i = 1
+    for k, v in pairs(CONTROLER_INPUT) do
+        CONTROLER_INPUT[k] = (input[i] > NEURONS_SENSITIVITY) -- Chesk if the output must be turned on
+        i = i + 1
+    end
 
-    return controle
+    return CONTROLER_INPUT
 end
 
 function getInputsIndice(x, y)
@@ -208,7 +214,7 @@ function drawOutput(output)
                 color = "white"
             end
             gui.drawRectangle(X_OUTPUT_ANCHOR, Y_OUTPUT_ANCHOR + (i * SIZE_HEIGTH_OUTPUT), SIZE_WIDTH_OUTPUT, SIZE_HEIGTH_OUTPUT, "black", color)
-            gui.drawString(X_OUTPUT_ANCHOR + SIZE_WIDTH_OUTPUT, Y_OUTPUT_ANCHOR + i * SIZE_HEIGTH_OUTPUT, CONTROLER_INPUT[i], "black", "white", 10, "Arial")
+            gui.drawString(X_OUTPUT_ANCHOR + SIZE_WIDTH_OUTPUT, Y_OUTPUT_ANCHOR + i * SIZE_HEIGTH_OUTPUT, CONTROLER_INPUT_STR[i], "black", "white", 10, "Arial")
         end
     end
 end
@@ -305,16 +311,24 @@ NETWORK.layers[1] = newLayer(8, WIDTH_INPUTS * HEIGHT_INPUTS)
 
 NEURONS_SENSITIVITY = 0.3
 
+local fitness = 0
+local maxFitness = 0
+
+local staticFrames = 0
+
 --SCRIPT--
 math.randomseed(os.time())
 
 console.log('AI STARTED')
 savestate.load(NOM_STATE)
 
-console.log(table.concat(softmax({4.8, 1.21, 2.385}), ", "))
-
 while true do
+    staticFrames = staticFrames + 1
     local mario = memory.read_s16_le(0x94);
+    if mario > fitness then
+        staticFrames = 0
+        fitness = mario
+    end
     gui.text(50, 50, mario)
     gui.text(50, 25, #getSprites())
     --gui.drawRectangle(X_NEURON_ANCHOR, Y_NEURON_ANCHOR, NEURON_DISPLAY_SIZE, NEURON_DISPLAY_SIZE, "black", "white")
@@ -322,17 +336,22 @@ while true do
     drawInput(NETWORK.input)
 
     local output = getActivationOutput(NETWORK)
-    console.log(NETWORK.output)
+    --console.log(NETWORK.output)
     --console.log(table.concat(output, ", "))
     --console.log(sum(NETWORK.output))
     --console.log(table.concat(NETWORK.input, ", "))
     
+    joypad.set(outputToControl(output), 1)
     drawOutput(output)
-    
-    joypad.set({Right = true}, 1)
+
     emu.frameadvance()
 
     if memory.readbyte(0x13E0) == 62 then
         savestate.load(NOM_STATE)
+    end
+
+    if staticFrames >= MAX_STATIC_FRAMES then
+        savestate.load(NOM_STATE)
+        staticFrames = 0
     end
 end
