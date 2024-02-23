@@ -12,6 +12,7 @@ VIEW_WIDTH = WIDTH_INPUTS * TILE_SIZE
 VIEW_HEIGHT = HEIGHT_INPUTS * TILE_SIZE
 
 POPULATION_SIZE = 20
+GENRATION = 0
 
 NEURON_DISPLAY_SIZE = 4 
 X_NEURON_ANCHOR = 100
@@ -39,21 +40,21 @@ MAX_STATIC_FRAMES = 100
 
 --CLASSES--
 
-Neurons = {biases = 0}
-
-Layer = {neurons = {}, connections = {}}
-
-Network = {input = {}, layers = {}, output = {}}
-
 --CONSTRUCTOR--
 
-function newPopulation()
+function newEmptyPopulation()
     local p = {}
     p.pop = {}
     p.maxFitness = 0
+
+    return p
+end
+
+function newPopulation()
+    local p = newEmptyPopulation()
     for i = 1, POPULATION_SIZE, 1 do
         p.pop[i] = newNetwork()
-        p.pop[i].layers[1] = newLayer(8, WIDTH_INPUTS * HEIGHT_INPUTS)
+        p.pop[i].outputLayer = newLayer(8, WIDTH_INPUTS * HEIGHT_INPUTS)
     end
 
     return p
@@ -63,15 +64,14 @@ function newNetwork()
     local n = {}
     n.input = {}
     n.layers = {}
+    n.outputLayer = {}
     n.output = {}
     n.fitness = 0
     return n
 end
 
 function newLayer(nbreNeurons, nbreInput)
-    local l = {}
-    l.biases = {}
-    l.weigth = {}
+    local l = newEmptyLayer()
 
     for i = 1, nbreNeurons, 1 do
         l.biases[i] = 0 --*Init Biases
@@ -85,18 +85,26 @@ function newLayer(nbreNeurons, nbreInput)
     return l
 end
 
+function newEmptyLayer()
+    local l = {}
+    l.biases = {}
+    l.weigth = {}
+
+    return l
+end
+
 --METHODS--
 
 function getActivationOutput(network)
     local currentInput = network.input
     --console.log(#network.layers)
     for i = 1, #network.layers, 1 do
-        network.output = forward(currentInput, network.layers[i].biases, network.layers[i].weigth)
+        network.output = ReLU(forward(currentInput, network.layers[i].biases, network.layers[i].weigth))
         currentInput = network.output
     end
         --console.log(#network.output)
 
-    network.output = softmax(network.output)
+    network.output = softmax(forward(currentInput, network.outputLayer.biases, network.outputLayer.weigth))
 
     --console.log(#network.output)
 
@@ -166,7 +174,78 @@ end
 
 --FUNCTIONS--
 
-function outputToControl(input) --! TO DO ASAP @3ps1ll0n !!!
+function reset(population, isAtBegining)
+
+    if isAtBegining then
+        console.log("Can't advance with this configuration...\nCreating brand new pop...")
+        return newPopulation()
+    end
+
+    GENRATION = GENRATION + 1
+
+    return nextGen(population)
+end
+
+function nextGen(population)
+    local newPop = newEmptyPopulation()
+    local bestIndex = 0
+    local bestFitness = 0
+
+    for i = 1, #population.pop, 1 do
+        if bestFitness < population.pop[i].fitness then
+            bestFitness = population.pop[i].fitness
+            bestIndex = i
+        end
+    end
+
+    local bestNetwork = population.pop[bestIndex]
+    newPop.pop[1] = bestNetwork
+
+    math.randomseed(os.time())
+    for i = 2, POPULATION_SIZE, 1 do
+        newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 2, 0.5)
+    end
+
+    return newPop
+end
+
+function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to applied edit on vector
+    local updatedNetwork = newNetwork()
+    
+    if network.layers == {} then
+        for l = 1, #network.layer, 1 do
+            for i = 1, #network.layer[l].biases, 1 do
+                local sign = math.random(0, 1)
+                if sign == 0 then sign = - 1 end
+                
+                updatedNetwork.layer[l].biases[i] = network.layer[l].biases[i] + ((math.random(1, 100) * 0.01 * biasesRange) * sign)
+            end
+        end
+        for l = 1,#network.layer, 1 do
+            for i = 1, #network.layer[l].weigth, 1 do
+                for j = 1, #network.layer[l].weigth[i], 1 do
+                    local sign = math.random(0, 1)
+                    if sign == 0 then sign = - 1 end
+
+                    updatedNetwork.layer[l].weigth[i][j] = network.layer[l].weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * sign)
+                end
+            end
+        end
+    end
+    updatedNetwork.outputLayer = newLayer(8, WIDTH_INPUTS * HEIGHT_INPUTS)
+    for i = 1, #network.outputLayer.weigth, 1 do
+        for j = 1, #network.outputLayer.weigth[i], 1 do
+            local sign = math.random(0, 1)
+            if sign == 0 then sign = -1 end
+            updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * sign)
+         end
+    end
+
+    return updatedNetwork
+    
+end
+
+function outputToControl(input) --* used to convert output layer into controller input
     local controlOutputs = {}
     for i = 1, NBRE_OUTPUT, 1 do
         controlOutputs[CONTROLER_INPUT[i].name] = (input[i] > NEURONS_SENSITIVITY) -- Chesk if the output must be turned on
@@ -294,7 +373,7 @@ function getSprites()
 
 end
 
-function getInputs()
+function getInputs() --Get tiles and sprites position
     local inputs = {}
     local tiles = getTiles()
     local sprites = getSprites()
@@ -328,12 +407,11 @@ end
 --VARIABLES--
 
 local population = newPopulation()
-NETWORK = newNetwork()
 local currentBeing = 1 
-NETWORK.layers[1] = newLayer(8, WIDTH_INPUTS * HEIGHT_INPUTS)
 
 NEURONS_SENSITIVITY = 0.3
 
+local lastFramFitness = 0
 local fitness = 0
 local maxFitness = 0
 
@@ -343,7 +421,7 @@ local staticFrames = 0
 math.randomseed(os.time())
 
 console.log('AI STARTED')
---console.log( joypad.getimmediate() )
+console.log(os.clock())
 savestate.load(NOM_STATE)
 
 while true do
@@ -351,13 +429,17 @@ while true do
     local currentNetwork = population.pop[currentBeing]
     local mario = memory.read_s16_le(0x94);
     if mario > fitness then
-        staticFrames = 0
         fitness = mario
     end
+    if fitness > lastFramFitness then
+        staticFrames = 0
+    end
 
-    gui.text(50, 10, "Max fitness : " .. population.maxFitness)
-    gui.text(50, 30, "Current fitness : " .. mario)
-    gui.text(50, 50, "Which individual : " .. currentBeing)
+    gui.text(20, 10, "Max fitness : " .. population.maxFitness)
+    gui.text(20, 30, "Current fitness : " .. mario)
+    gui.text(20, 50, "Which individual : " .. currentBeing)
+    gui.text(20, 70, "Gen : " .. GENRATION)
+    gui.text(20, 90, "Static frame count : " .. staticFrames)
     
     --gui.drawRectangle(X_NEURON_ANCHOR, Y_NEURON_ANCHOR, NEURON_DISPLAY_SIZE, NEURON_DISPLAY_SIZE, "black", "white")
     currentNetwork.input = getInputs()
@@ -373,21 +455,28 @@ while true do
     joypad.set(outputToControl(output))
     drawOutput(output)
 
+    lastFramFitness = fitness
+
     emu.frameadvance()
 
     if memory.readbyte(0x13E0) == 62 or staticFrames >= MAX_STATIC_FRAMES then
         savestate.load(NOM_STATE)
         staticFrames = 0
-
-        currentNetwork.fitness = fitness
+        population.pop[currentBeing].fitness = fitness
+        
+        
         if population.maxFitness < fitness then
             population.maxFitness = fitness
         end
 
+        fitness = 0
+        lastFramFitness = 0
+
         if currentBeing < POPULATION_SIZE then
             currentBeing = currentBeing + 1
         else 
-            break
+            currentBeing = 1
+            population = reset(population, (fitness/16)  == 1.0 and (fitness%16) == 0)
         end
     end
 end
