@@ -11,6 +11,7 @@ TILE_SIZE = 16
 VIEW_WIDTH = WIDTH_INPUTS * TILE_SIZE
 VIEW_HEIGHT = HEIGHT_INPUTS * TILE_SIZE
 
+MAX_NEURONS_ON_LAYER = 10
 POPULATION_SIZE = 20
 GENRATION = 0
 
@@ -75,14 +76,19 @@ function newLayer(nbreNeurons, nbreInput)
 
     for i = 1, nbreNeurons, 1 do
         l.biases[i] = 0 --*Init Biases
-        l.weigth[i] = {}
-        for j = 1, nbreInput, 1 do
-            local isNeg = math.random(0, 1)
-            if isNeg == 0 then isNeg = -1 end
-            l.weigth[i][j] = (math.random(1, 100) * 0.01) * isNeg
-        end
+        l.weigth[i] = generateRandomWeigths(nbreInput)
     end
     return l
+end
+
+function generateRandomWeigths(amount)
+    local weights = {}
+    for i = 0, amount, 1 do
+        table.insert(weights, (math.random(1, 100) * 0.01) * generateRandomSign())
+    end
+
+    return weights
+    
 end
 
 function newEmptyLayer()
@@ -113,6 +119,15 @@ function getActivationOutput(network)
 end
 
 --MATH_FUNCTION--
+
+function generateRandomSign()
+    local sign = math.random(0, 1)
+    if sign == 0 then
+        sign = -1
+    end
+
+    return sign
+end
 
 function forward(input, biases, weigth)
     local output = {}
@@ -209,6 +224,25 @@ function nextGen(population)
     return newPop
 end
 
+function addNeurons(network) --! TO DO ASAP @3ps1ll0n
+    if network.layers[1] == nil then --IF THERE IS NO EXISTING LAYER
+        network.layers[1] = newLayer(1, WIDTH_INPUTS * HEIGHT_INPUTS)
+        network.layers[1].biases[1] = math.random() * generateRandomSign()
+        for i = 1, #network.outputLayer.weigth, 1 do
+            network.outputLayer.weigth[i][1] = sum(network.outputLayer.weigth[i]) / #network.outputLayer.weigth[i] --Merging existing weight 
+        end
+    elseif #network.layers[1].biases >= MAX_NEURONS_ON_LAYER then --IF A LAYER IS FULL, CREATE AN OTHER
+        table.insert(network.layers, 1, newLayer(1, WIDTH_INPUTS * HEIGHT_INPUTS))
+        network.layers[1].biases[1] = math.random() * generateRandomSign()
+        for i = 1, #network.layers[2].weigth, 1 do
+            network.layers[2].weigth[i][1] = sum(network.layers[2].weigth[i]) / #network.layer[2].weigth[i]
+        end
+    else
+        table.insert(network.layer[1].biases, math.random() * generateRandomSign()) -- new neuron
+        table.insert(network.layer[1].weigth, generateRandomWeigths(WIDTH_INPUTS * HEIGHT_INPUTS)) -- new connections to Input
+    end
+end
+
 function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to applied edit on vector
     local updatedNetwork = newNetwork()
     
@@ -237,7 +271,14 @@ function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to appl
         for j = 1, #network.outputLayer.weigth[i], 1 do
             local sign = math.random(0, 1)
             if sign == 0 then sign = -1 end
-            updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * sign)
+            local mustBeRandomlyChanged = math.random()
+
+            if mustBeRandomlyChanged <= 0.100 then
+                updatedNetwork.outputLayer.weigth[i][j] = (math.random(1, 100) * 0.01) * sign
+            else
+                updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * sign)
+            end
+            
          end
     end
 
