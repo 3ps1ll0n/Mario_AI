@@ -11,18 +11,20 @@ TILE_SIZE = 16
 VIEW_WIDTH = WIDTH_INPUTS * TILE_SIZE
 VIEW_HEIGHT = HEIGHT_INPUTS * TILE_SIZE
 
-MAX_NEURONS_ON_LAYER = 10
-POPULATION_SIZE = 20
+MAX_NEURONS_ON_LAYER = 10000
+POPULATION_SIZE = 30
 GENRATION = 0
 
 NEURON_DISPLAY_SIZE = 4 
-X_NEURON_ANCHOR = 100
+X_NEURON_ANCHOR = 50
 Y_NEURON_ANCHOR = 25
 
 SIZE_WIDTH_OUTPUT = 20
 SIZE_HEIGTH_OUTPUT = 10
 X_OUTPUT_ANCHOR = 200
 Y_OUTPUT_ANCHOR = 10
+X_HIDEN_ANCHOR = 120
+Y_HIDEN_ANCHOR = 5
 
 NBRE_OUTPUT = 8
 CONTROLER_INPUT_STR = {'A', 'B', 'X', 'Y', 'Up', 'Down', 'Left', 'Right'}
@@ -37,7 +39,9 @@ CONTROLER_INPUT =   {
                         {name = "P1 Right"} 
                     }
 
-MAX_STATIC_FRAMES = 100
+MAX_STATIC_FRAMES = 90
+ABSOLUTE_MAX_FINTESS = 0
+NO_UPGRADES_CYCLE = 3
 
 --CLASSES--
 
@@ -78,13 +82,14 @@ function newLayer(nbreNeurons, nbreInput)
         l.biases[i] = 0 --*Init Biases
         l.weigth[i] = generateRandomWeigths(nbreInput)
     end
+    --if #l.biases == #l.weigth then console.log("THIS LAYER IS OK") end
     return l
 end
 
 function generateRandomWeigths(amount)
     local weights = {}
-    for i = 0, amount, 1 do
-        table.insert(weights, (math.random(1, 100) * 0.01) * generateRandomSign())
+    for i = 1, amount, 1 do
+        weights[i] = (math.random(1, 100) * 0.01) * generateRandomSign()
     end
 
     return weights
@@ -110,7 +115,7 @@ function getActivationOutput(network)
     end
         --console.log(#network.output)
 
-    network.output = softmax(forward(currentInput, network.outputLayer.biases, network.outputLayer.weigth))
+    network.output = sigmoid(forward(currentInput, network.outputLayer.biases, network.outputLayer.weigth))
 
     --console.log(#network.output)
 
@@ -169,6 +174,16 @@ function ReLU(input)
     return output
 end
 
+function sigmoid(input)
+    local output = {}
+
+    for i = 1, #input, 1 do
+        output[i] = 1/(1 + math.exp(-input[i]))
+    end
+
+    return output
+end
+
 function softmax(input)
     local output = {}
     local expOutput = {}
@@ -189,6 +204,42 @@ end
 
 --FUNCTIONS--
 
+function  countWeight(network)
+    local nbre = 0
+
+    for l = 1, #network.layers do
+        for i = 1, #network.layers[l].weigth, 1 do
+            for j = 1, #network.layers[l].weigth[i], 1 do
+                nbre = nbre + 1
+            end
+        end
+    end
+
+    for i = 1, #network.outputLayer.weigth, 1 do
+        for j = 1, #network.outputLayer.weigth[i] do
+            nbre = nbre + 1
+        end
+    end
+    return nbre
+end
+
+function countBiases(network)
+    local nbre = 0
+
+    for l = 1, #network.layers do
+        for i = 1, #network.layers[l].biases, 1 do
+            nbre = nbre + 1
+        end
+    end
+
+    for i = 1, #network.outputLayer.biases, 1 do
+        nbre = nbre + 1
+    end
+
+
+    return nbre
+end
+
 function reset(population, isAtBegining)
 
     if isAtBegining then
@@ -205,6 +256,7 @@ function nextGen(population)
     local newPop = newEmptyPopulation()
     local bestIndex = 0
     local bestFitness = 0
+    local isNeuronBeenAdded = false
 
     for i = 1, #population.pop, 1 do
         if bestFitness < population.pop[i].fitness then
@@ -214,69 +266,156 @@ function nextGen(population)
     end
 
     local bestNetwork = population.pop[bestIndex]
+
+    if ABSOLUTE_MAX_FINTESS >= bestFitness then NO_UPGRADES_CYCLE = NO_UPGRADES_CYCLE + 1
+    else 
+        ABSOLUTE_MAX_FINTESS = bestFitness
+        NO_UPGRADES_CYCLE = 0
+    end
+    if NO_UPGRADES_CYCLE >= 3 then 
+        bestNetwork = addNeurons(bestNetwork)
+        isNeuronBeenAdded = true
+        NO_UPGRADES_CYCLE = 0
+    end
+
     newPop.pop[1] = bestNetwork
 
     math.randomseed(os.time())
-    for i = 2, POPULATION_SIZE, 1 do
-        newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 2, 0.5)
+    if isNeuronBeenAdded then
+        for i = 2, POPULATION_SIZE, 1 do
+            if i <= POPULATION_SIZE/2 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 2, 0.5)
+            else newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 5, 4) end
+        end
+    else 
+        for i = 2, POPULATION_SIZE, 1 do
+            if i <= POPULATION_SIZE/5 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 2, 2)
+            --elseif i <= POPULATION_SIZE/2 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 5, 4)
+            --elseif i <= POPULATION_SIZE/(3/4) then newPop.pop[i] = mergeBiasesAndWeigth(bestNetwork, population.pop[i])
+            else newPop.pop[i] = mergeBiasesAndWeigth(bestNetwork, population.pop[i]) end
+        end
     end
-
     return newPop
 end
 
-function addNeurons(network) --! TO DO ASAP @3ps1ll0n
-    if network.layers[1] == nil then --IF THERE IS NO EXISTING LAYER
+function addNeurons(network)
+    gui.addmessage("Creating neuron...")
+    if #network.layers == 0 then --IF THERE IS NO EXISTING LAYER
+        gui.addmessage("FIRST NEURON...")
         network.layers[1] = newLayer(1, WIDTH_INPUTS * HEIGHT_INPUTS)
         network.layers[1].biases[1] = math.random() * generateRandomSign()
         for i = 1, #network.outputLayer.weigth, 1 do
-            network.outputLayer.weigth[i][1] = sum(network.outputLayer.weigth[i]) / #network.outputLayer.weigth[i] --Merging existing weight 
+            local summation = sum(network.outputLayer.weigth[i])
+            local entryNumbers = #network.outputLayer.weigth[i]
+            network.outputLayer.weigth[i] =  {summation / entryNumbers}  --Merging existing weight
         end
     elseif #network.layers[1].biases >= MAX_NEURONS_ON_LAYER then --IF A LAYER IS FULL, CREATE AN OTHER
         table.insert(network.layers, 1, newLayer(1, WIDTH_INPUTS * HEIGHT_INPUTS))
         network.layers[1].biases[1] = math.random() * generateRandomSign()
         for i = 1, #network.layers[2].weigth, 1 do
-            network.layers[2].weigth[i][1] = sum(network.layers[2].weigth[i]) / #network.layer[2].weigth[i]
+            network.layers[2].weigth[i][1] = sum(network.layers[2].weigth[i]) / #network.layers[2].weigth[i]
         end
     else
-        table.insert(network.layer[1].biases, math.random() * generateRandomSign()) -- new neuron
-        table.insert(network.layer[1].weigth, generateRandomWeigths(WIDTH_INPUTS * HEIGHT_INPUTS)) -- new connections to Input
+        table.insert(network.layers[1].biases, math.random() * generateRandomSign()) -- new neuron
+        table.insert(network.layers[1].weigth, generateRandomWeigths(WIDTH_INPUTS * HEIGHT_INPUTS)) -- new connections to Input
+
+        if #network.layers == 1 then
+            for i = 1, #network.outputLayer.weigth, 1 do
+                table.insert(network.outputLayer.weigth[i], math.random() * generateRandomSign())
+            end
+        else
+            for i = 1, #network.layer[2].weigth, 1 do
+                table.insert(network.layer[2].weigth[i], math.random() * generateRandomSign())
+            end
+        end
     end
+
+    for i = 1, #network.layers, 1 do -- CHECK IF THE LAYERS ARE VALID
+        if #network.layers[i].biases ~= #network.layers[i].weigth then gui.addmessage("NOT VALID LAYER : unvalid connection") end
+        if i == 1 then
+            if #network.layers[i].weigth[1] ~= WIDTH_INPUTS * HEIGHT_INPUTS then gui.addmessage("NOT VALID LAYER : wrong input size") end
+        else
+            if  #network.layer[i].weigth[1] ~= #network.layer[i - 1].biases then gui.addmessage("NOT VALID LAYER : not rightly connected") end
+        end
+    end
+    if #network.outputLayer.biases ~= #network.outputLayer.weigth then gui.addmessage("NOT VALID OUPUT LAYER") end
+    --END OF VERIFICATION 
+    gui.addmessage("New neuron created...")
+    return network
+end
+
+function mergeBiasesAndWeigth(bestNetwork, network )
+    local updatedNetwork = newNetwork()
+    local percentOfBest = network.fitness/bestNetwork.fitness * 0.5
+    if #network.layers ~= 0 then
+        for l = 1, #network.layers, 1 do
+            updatedNetwork.layers[l]  = newEmptyLayer()
+            for i = 1, #network.layers[l].weigth, 1 do
+                updatedNetwork.layers[l].weigth[i] = {}
+                if math.random() < percentOfBest then updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i]
+                else updatedNetwork.layers[l].biases[i] = bestNetwork.layers[l].biases[i]
+                end
+                for j = 1, #network.layers[l].weigth[i], 1 do
+                    if math.random() < percentOfBest then updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
+                    else updatedNetwork.layers[l].weigth[i][j] = bestNetwork.layers[l].weigth[i][j]
+                    end
+                end
+            end
+        end
+    end
+    updatedNetwork.outputLayer = newEmptyLayer()
+    for i = 1, #network.outputLayer.weigth, 1 do
+        updatedNetwork.outputLayer.weigth[i] = {}
+        if math.random() < percentOfBest then updatedNetwork.outputLayer.biases[i] = network.outputLayer.biases[i]
+        else updatedNetwork.outputLayer.biases[i] = bestNetwork.outputLayer.biases[i]
+        end
+        for j = 1, #network.outputLayer.weigth[i], 1 do
+            if math.random() < percentOfBest then updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j]
+            else updatedNetwork.outputLayer.weigth[i][j] = bestNetwork.outputLayer.weigth[i][j]
+            end
+        end
+    end
+
+    return updatedNetwork
 end
 
 function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to applied edit on vector
     local updatedNetwork = newNetwork()
     
-    if network.layers == {} then
-        for l = 1, #network.layer, 1 do
-            for i = 1, #network.layer[l].biases, 1 do
-                local sign = math.random(0, 1)
-                if sign == 0 then sign = - 1 end
-                
-                updatedNetwork.layer[l].biases[i] = network.layer[l].biases[i] + ((math.random(1, 100) * 0.01 * biasesRange) * sign)
+    if #network.layers ~= 0 then
+        for l = 1, #network.layers, 1 do
+            updatedNetwork.layers[l]  = newEmptyLayer()
+            for i = 1, #network.layers[l].biases, 1 do
+                local mustBeRandomlyChanged = math.random()
+                if mustBeRandomlyChanged <= 0.100 then
+                    updatedNetwork.layers[l].biases[i] = (math.random(1, 100) * 0.01) * generateRandomSign()
+                end
+                updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i] + ((math.random(1, 100) * 0.01 * biasesRange) * generateRandomSign())
             end
         end
-        for l = 1,#network.layer, 1 do
-            for i = 1, #network.layer[l].weigth, 1 do
-                for j = 1, #network.layer[l].weigth[i], 1 do
-                    local sign = math.random(0, 1)
-                    if sign == 0 then sign = - 1 end
-
-                    updatedNetwork.layer[l].weigth[i][j] = network.layer[l].weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * sign)
+        for l = 1,#network.layers, 1 do
+            for i = 1, #network.layers[l].weigth, 1 do
+                updatedNetwork.layers[l].weigth[i] = {}
+                for j = 1, #network.layers[l].weigth[i], 1 do
+                    local mustBeRandomlyChanged = math.random()
+                    if mustBeRandomlyChanged <= 0.100 then
+                        updatedNetwork.layers[l].weigth[i][j] = (math.random(1, 100) * 0.01) * generateRandomSign()
+                    end
+                    updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * generateRandomSign())
                 end
             end
         end
     end
-    updatedNetwork.outputLayer = newLayer(8, WIDTH_INPUTS * HEIGHT_INPUTS)
+    updatedNetwork.outputLayer = newEmptyLayer()
     for i = 1, #network.outputLayer.weigth, 1 do
+        updatedNetwork.outputLayer.weigth[i] = {}
+        updatedNetwork.outputLayer.biases[i] = 0
         for j = 1, #network.outputLayer.weigth[i], 1 do
-            local sign = math.random(0, 1)
-            if sign == 0 then sign = -1 end
             local mustBeRandomlyChanged = math.random()
 
             if mustBeRandomlyChanged <= 0.100 then
-                updatedNetwork.outputLayer.weigth[i][j] = (math.random(1, 100) * 0.01) * sign
+                updatedNetwork.outputLayer.weigth[i][j] = (math.random(1, 100) * 0.01) * generateRandomSign()
             else
-                updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * sign)
+                updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * generateRandomSign())
             end
             
          end
@@ -346,6 +485,23 @@ function drawInput(inputs)
 	        mario.y = (mario.y - 1) * NEURON_DISPLAY_SIZE + Y_NEURON_ANCHOR
             gui.drawRectangle(mario.x, mario.y, NEURON_DISPLAY_SIZE, NEURON_DISPLAY_SIZE * 2, "black", "blue")
 
+        end
+    end
+end
+
+function drawHiden(hidenLayers)
+    if hidenLayers[1] == nil then return end
+
+    for i = 1, #hidenLayers, 1 do
+        for j = 1, #hidenLayers[i].biases, 1 do
+            gui.drawRectangle(
+                            X_HIDEN_ANCHOR + (((j - 1) % 12) * NEURON_DISPLAY_SIZE ),
+                            Y_HIDEN_ANCHOR + ( (math.floor((j - 1)/12)) * (NEURON_DISPLAY_SIZE)),
+                            NEURON_DISPLAY_SIZE,
+                            NEURON_DISPLAY_SIZE,
+                            "black",
+                            "white"
+                        )
         end
     end
 end
@@ -450,7 +606,7 @@ end
 local population = newPopulation()
 local currentBeing = 1 
 
-NEURONS_SENSITIVITY = 0.3
+NEURONS_SENSITIVITY = 0.5
 
 local lastFramFitness = 0
 local fitness = 0
@@ -481,7 +637,8 @@ while true do
     gui.text(20, 50, "Which individual : " .. currentBeing)
     gui.text(20, 70, "Gen : " .. GENRATION)
     gui.text(20, 90, "Static frame count : " .. staticFrames)
-    
+    gui.text(20, 110, "NO_UPGRADES_CYCLE : " .. NO_UPGRADES_CYCLE)
+    gui.text(20, 130, "Biases : " .. countBiases(currentNetwork) .. "; Weight : " .. countWeight(currentNetwork) .. "; Input : " .. WIDTH_INPUTS * HEIGHT_INPUTS)
     --gui.drawRectangle(X_NEURON_ANCHOR, Y_NEURON_ANCHOR, NEURON_DISPLAY_SIZE, NEURON_DISPLAY_SIZE, "black", "white")
     currentNetwork.input = getInputs()
     drawInput(currentNetwork.input)
@@ -492,9 +649,9 @@ while true do
     --console.log(sum(NETWORK.output))
     --console.log(table.concat(NETWORK.input, ", "))
     
-    local inp = {}
     joypad.set(outputToControl(output))
     drawOutput(output)
+    drawHiden(currentNetwork.layers)
 
     lastFramFitness = fitness
 
