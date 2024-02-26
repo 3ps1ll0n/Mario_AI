@@ -302,7 +302,7 @@ function addNeurons(network)
     if #network.layers == 0 then --IF THERE IS NO EXISTING LAYER
         gui.addmessage("FIRST NEURON...")
         network.layers[1] = newLayer(1, WIDTH_INPUTS * HEIGHT_INPUTS)
-        network.layers[1].biases[1] = math.random() * generateRandomSign()
+        network.layers[1].biases[1] = (math.random(1, 100) * 0.005) * generateRandomSign()
         for i = 1, #network.outputLayer.weigth, 1 do
             local summation = sum(network.outputLayer.weigth[i])
             local entryNumbers = #network.outputLayer.weigth[i]
@@ -355,7 +355,8 @@ function mergeBiasesAndWeigth(bestNetwork, network )
                 else updatedNetwork.layers[l].biases[i] = bestNetwork.layers[l].biases[i]
                 end
                 for j = 1, #network.layers[l].weigth[i], 1 do
-                    if math.random() < percentOfBest then updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
+                    if math.random(1 , 1000) <= 100 then updatedNetwork.layers[l].weigth[i][j] = 0
+                    elseif math.random() < percentOfBest then updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
                     else updatedNetwork.layers[l].weigth[i][j] = bestNetwork.layers[l].weigth[i][j]
                     end
                 end
@@ -387,7 +388,7 @@ function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to appl
             for i = 1, #network.layers[l].biases, 1 do
                 local mustBeRandomlyChanged = math.random()
                 if mustBeRandomlyChanged <= 0.100 then
-                    updatedNetwork.layers[l].biases[i] = (math.random(1, 100) * 0.01) * generateRandomSign()
+                    updatedNetwork.layers[l].biases[i] = (math.random(1, 100) * 0.005) * generateRandomSign()
                 end
                 updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i] + ((math.random(1, 100) * 0.01 * biasesRange) * generateRandomSign())
             end
@@ -413,7 +414,7 @@ function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to appl
             local mustBeRandomlyChanged = math.random()
 
             if mustBeRandomlyChanged <= 0.100 then
-                updatedNetwork.outputLayer.weigth[i][j] = (math.random(1, 100) * 0.01) * generateRandomSign()
+                updatedNetwork.outputLayer.weigth[i][j] = (math.random(1, 100) * 0.005) * generateRandomSign()
             else
                 updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * generateRandomSign())
             end
