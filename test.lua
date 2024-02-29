@@ -43,6 +43,8 @@ MAX_STATIC_FRAMES = 90
 ABSOLUTE_MAX_FINTESS = 0
 NO_UPGRADES_CYCLE = 0
 MAX_NO_UPGRADES_CYCLE = 100000
+FITNESS_WHEN_LEVEL_IS_COMPLETE = 0xffff
+PLAYED_FRAME = 0
 
 --CLASSES--
 
@@ -252,8 +254,15 @@ function countBiases(network)
     return nbre
 end
 
-function reset(population, isAtBegining)
+function isLevelComplete(network)
+    if memory.readbyte(0x0100) == 12 then
+        gui.addmessage("level complete !")
+        network.fitness = FITNESS_WHEN_LEVEL_IS_COMPLETE + (400 - math.floor(PLAYED_FRAME/30 ))
+    end
+end
 
+function reset(population, isAtBegining)
+    
     if isAtBegining then
         console.log("Can't advance with this configuration...\nCreating brand new pop...")
         return newPopulation()
@@ -669,12 +678,14 @@ while true do
     lastFramFitness = fitness
 
     emu.frameadvance()
+    PLAYED_FRAME = PLAYED_FRAME + 1
 
     if memory.readbyte(0x13E0) == 62 or staticFrames >= MAX_STATIC_FRAMES then
         savestate.load(NOM_STATE)
         staticFrames = 0
         population.pop[currentBeing].fitness = fitness
-        
+
+        isLevelComplete(currentNetwork)
         
         if population.maxFitness < fitness then
             population.maxFitness = fitness
@@ -682,6 +693,7 @@ while true do
 
         fitness = 0
         lastFramFitness = 0
+        PLAYED_FRAME = 0
 
         if currentBeing < POPULATION_SIZE then
             currentBeing = currentBeing + 1
