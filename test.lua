@@ -11,7 +11,7 @@ TILE_SIZE = 16
 VIEW_WIDTH = WIDTH_INPUTS * TILE_SIZE
 VIEW_HEIGHT = HEIGHT_INPUTS * TILE_SIZE
 
-MAX_NEURONS_ON_LAYER = 24
+MAX_NEURONS_ON_LAYER = 30
 POPULATION_SIZE = 20
 GENRATION = 0
 
@@ -41,7 +41,8 @@ CONTROLER_INPUT =   {
 
 MAX_STATIC_FRAMES = 90
 ABSOLUTE_MAX_FINTESS = 0
-NO_UPGRADES_CYCLE = 5
+NO_UPGRADES_CYCLE = 0
+MAX_NO_UPGRADES_CYCLE = 100000
 
 --CLASSES--
 
@@ -283,7 +284,7 @@ function nextGen(population)
         ABSOLUTE_MAX_FINTESS = bestFitness
         NO_UPGRADES_CYCLE = 0
     end
-    if NO_UPGRADES_CYCLE >= 3 then 
+    if NO_UPGRADES_CYCLE >= MAX_NO_UPGRADES_CYCLE then 
         bestNetwork = addNeurons(bestNetwork)
         isNeuronBeenAdded = true
         NO_UPGRADES_CYCLE = 0
@@ -615,7 +616,7 @@ end
 
 --VARIABLES--
 
-local population = newAdvancedPopulation(72)
+local population = newAdvancedPopulation(90)
 local currentBeing = 1 
 
 NEURONS_SENSITIVITY = 0.5
