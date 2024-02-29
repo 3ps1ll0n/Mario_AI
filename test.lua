@@ -11,8 +11,8 @@ TILE_SIZE = 16
 VIEW_WIDTH = WIDTH_INPUTS * TILE_SIZE
 VIEW_HEIGHT = HEIGHT_INPUTS * TILE_SIZE
 
-MAX_NEURONS_ON_LAYER = 10000
-POPULATION_SIZE = 30
+MAX_NEURONS_ON_LAYER = 24
+POPULATION_SIZE = 20
 GENRATION = 0
 
 NEURON_DISPLAY_SIZE = 4 
@@ -41,7 +41,7 @@ CONTROLER_INPUT =   {
 
 MAX_STATIC_FRAMES = 90
 ABSOLUTE_MAX_FINTESS = 0
-NO_UPGRADES_CYCLE = 3
+NO_UPGRADES_CYCLE = 5
 
 --CLASSES--
 
@@ -52,6 +52,17 @@ function newEmptyPopulation()
     p.pop = {}
     p.maxFitness = 0
 
+    return p
+end
+
+function newAdvancedPopulation(neurons)
+    local p = newPopulation()
+
+    for i = 1, #p.pop, 1 do
+        for j = 1, neurons, 1 do
+            p.pop[i] = addNeurons(p.pop[i])
+        end
+    end
     return p
 end
 
@@ -312,7 +323,7 @@ function addNeurons(network)
         table.insert(network.layers, 1, newLayer(1, WIDTH_INPUTS * HEIGHT_INPUTS))
         network.layers[1].biases[1] = math.random() * generateRandomSign()
         for i = 1, #network.layers[2].weigth, 1 do
-            network.layers[2].weigth[i][1] = sum(network.layers[2].weigth[i]) / #network.layers[2].weigth[i]
+            network.layers[2].weigth[i] = {sum(network.layers[2].weigth[i]) / #network.layers[2].weigth[i]}
         end
     else
         table.insert(network.layers[1].biases, math.random() * generateRandomSign()) -- new neuron
@@ -323,8 +334,8 @@ function addNeurons(network)
                 table.insert(network.outputLayer.weigth[i], math.random() * generateRandomSign())
             end
         else
-            for i = 1, #network.layer[2].weigth, 1 do
-                table.insert(network.layer[2].weigth[i], math.random() * generateRandomSign())
+            for i = 1, #network.layers[2].weigth, 1 do
+                table.insert(network.layers[2].weigth[i], math.random() * generateRandomSign())
             end
         end
     end
@@ -334,7 +345,7 @@ function addNeurons(network)
         if i == 1 then
             if #network.layers[i].weigth[1] ~= WIDTH_INPUTS * HEIGHT_INPUTS then gui.addmessage("NOT VALID LAYER : wrong input size") end
         else
-            if  #network.layer[i].weigth[1] ~= #network.layer[i - 1].biases then gui.addmessage("NOT VALID LAYER : not rightly connected") end
+            if  #network.layers[i].weigth[1] ~= #network.layers[i - 1].biases then gui.addmessage("NOT VALID LAYER : not rightly connected") end
         end
     end
     if #network.outputLayer.biases ~= #network.outputLayer.weigth then gui.addmessage("NOT VALID OUPUT LAYER") end
@@ -496,8 +507,8 @@ function drawHiden(hidenLayers)
     for i = 1, #hidenLayers, 1 do
         for j = 1, #hidenLayers[i].biases, 1 do
             gui.drawRectangle(
-                            X_HIDEN_ANCHOR + (((j - 1) % 12) * NEURON_DISPLAY_SIZE ),
-                            Y_HIDEN_ANCHOR + ( (math.floor((j - 1)/12)) * (NEURON_DISPLAY_SIZE)),
+                            X_HIDEN_ANCHOR + (((j - 1) % (MAX_NEURONS_ON_LAYER/2)) * NEURON_DISPLAY_SIZE ),
+                            Y_HIDEN_ANCHOR + ( (math.floor((j - 1)/(MAX_NEURONS_ON_LAYER/2))) * (NEURON_DISPLAY_SIZE)) + ((i - 1) * 3 * NEURON_DISPLAY_SIZE),
                             NEURON_DISPLAY_SIZE,
                             NEURON_DISPLAY_SIZE,
                             "black",
@@ -604,7 +615,7 @@ end
 
 --VARIABLES--
 
-local population = newPopulation()
+local population = newAdvancedPopulation(72)
 local currentBeing = 1 
 
 NEURONS_SENSITIVITY = 0.5
