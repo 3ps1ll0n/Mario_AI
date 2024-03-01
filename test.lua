@@ -42,7 +42,7 @@ CONTROLER_INPUT =   {
 MAX_STATIC_FRAMES = 90
 ABSOLUTE_MAX_FINTESS = 0
 NO_UPGRADES_CYCLE = 0
-MAX_NO_UPGRADES_CYCLE = 100000
+MAX_NO_UPGRADES_CYCLE = 1000
 FITNESS_WHEN_LEVEL_IS_COMPLETE = 0xffff
 PLAYED_FRAME = 0
 
@@ -255,10 +255,12 @@ function countBiases(network)
 end
 
 function isLevelComplete(network)
-    if memory.readbyte(0x0100) == 12 then
-        gui.addmessage("level complete !")
+    if memory.readbyte(0x0100) == 0x0C then
+        console.log("level complete !")
         network.fitness = FITNESS_WHEN_LEVEL_IS_COMPLETE + (400 - math.floor(PLAYED_FRAME/30 ))
+        return true
     end
+    return false
 end
 
 function reset(population, isAtBegining)
@@ -278,7 +280,6 @@ function nextGen(population)
     local bestIndex = 0
     local bestFitness = 0
     local isNeuronBeenAdded = false
-
     for i = 1, #population.pop, 1 do
         if bestFitness < population.pop[i].fitness then
             bestFitness = population.pop[i].fitness
@@ -309,7 +310,7 @@ function nextGen(population)
         end
     else 
         for i = 2, POPULATION_SIZE, 1 do
-            if i <= POPULATION_SIZE/5 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 2, 2)
+            if math.random() <= 0.100 then newPop.pop[i] = changeBiasesAndWeight(mergeBiasesAndWeigth(bestNetwork, population.pop[i]), 2, 1)
             --elseif i <= POPULATION_SIZE/2 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 5, 4)
             --elseif i <= POPULATION_SIZE/(3/4) then newPop.pop[i] = mergeBiasesAndWeigth(bestNetwork, population.pop[i])
             else newPop.pop[i] = mergeBiasesAndWeigth(bestNetwork, population.pop[i]) end
@@ -376,8 +377,7 @@ function mergeBiasesAndWeigth(bestNetwork, network )
                 else updatedNetwork.layers[l].biases[i] = bestNetwork.layers[l].biases[i]
                 end
                 for j = 1, #network.layers[l].weigth[i], 1 do
-                    if math.random(1 , 1000) <= 100 then updatedNetwork.layers[l].weigth[i][j] = 0
-                    elseif math.random() < percentOfBest then updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
+                    if math.random() < percentOfBest then updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
                     else updatedNetwork.layers[l].weigth[i][j] = bestNetwork.layers[l].weigth[i][j]
                     end
                 end
@@ -623,6 +623,16 @@ function getInputs() --Get tiles and sprites position
     return inputs
 end
 
+--SAVING_FILES_MANAGER--
+
+function readModel() --! TO DO ASAP @3ps1ll0n
+    
+end
+
+function saveModel(population) --! TO DO ASAP @3ps1ll0n
+    
+end
+
 --VARIABLES--
 
 local population = newAdvancedPopulation(90)
@@ -632,7 +642,7 @@ NEURONS_SENSITIVITY = 0.5
 
 local lastFramFitness = 0
 local fitness = 0
-local maxFitness = 0
+local maxIndiv = 0
 
 local staticFrames = 0
 
@@ -680,13 +690,10 @@ while true do
     emu.frameadvance()
     PLAYED_FRAME = PLAYED_FRAME + 1
 
-    if memory.readbyte(0x13E0) == 62 or staticFrames >= MAX_STATIC_FRAMES then
+    if memory.readbyte(0x13E0) == 62 or staticFrames >= MAX_STATIC_FRAMES or isLevelComplete(population.pop[currentBeing]) then
         savestate.load(NOM_STATE)
         staticFrames = 0
-        population.pop[currentBeing].fitness = fitness
-
-        isLevelComplete(currentNetwork)
-        
+        if population.pop[currentBeing].fitness < fitness then population.pop[currentBeing].fitness = fitness end
         if population.maxFitness < fitness then
             population.maxFitness = fitness
         end
