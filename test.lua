@@ -1,5 +1,6 @@
 --CONSTANTE--
 NOM_STATE = "debut.state"
+NOM_FICHIER = "model_mario"
 
 WIDTH_CAMERA = 256
 HEIGHT_CAMERA = 224
@@ -43,7 +44,7 @@ MAX_STATIC_FRAMES = 90
 ABSOLUTE_MAX_FINTESS = 0
 NO_UPGRADES_CYCLE = 0
 MAX_NO_UPGRADES_CYCLE = 1000
-FITNESS_WHEN_LEVEL_IS_COMPLETE = 0xffff
+FITNESS_WHEN_LEVEL_IS_COMPLETE = 100000
 PLAYED_FRAME = 0
 
 --CLASSES--
@@ -254,13 +255,13 @@ function countBiases(network)
     return nbre
 end
 
-function isLevelComplete(network)
+function isLevelComplete()
+    local value = 0
     if memory.readbyte(0x0100) == 0x0C then
         console.log("level complete !")
-        network.fitness = FITNESS_WHEN_LEVEL_IS_COMPLETE + (400 - math.floor(PLAYED_FRAME/30 ))
-        return true
+        value = FITNESS_WHEN_LEVEL_IS_COMPLETE + (400 * 30 - PLAYED_FRAME)
     end
-    return false
+    return value
 end
 
 function reset(population, isAtBegining)
@@ -269,6 +270,8 @@ function reset(population, isAtBegining)
         console.log("Can't advance with this configuration...\nCreating brand new pop...")
         return newPopulation()
     end
+
+    saveModel(population)
 
     GENRATION = GENRATION + 1
 
@@ -311,6 +314,7 @@ function nextGen(population)
     else 
         for i = 2, POPULATION_SIZE, 1 do
             if math.random() <= 0.100 then newPop.pop[i] = changeBiasesAndWeight(mergeBiasesAndWeigth(bestNetwork, population.pop[i]), 2, 1)
+            elseif  math.random() <= 0.100 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 1, 1)
             --elseif i <= POPULATION_SIZE/2 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 5, 4)
             --elseif i <= POPULATION_SIZE/(3/4) then newPop.pop[i] = mergeBiasesAndWeigth(bestNetwork, population.pop[i])
             else newPop.pop[i] = mergeBiasesAndWeigth(bestNetwork, population.pop[i]) end
@@ -365,19 +369,21 @@ function addNeurons(network)
     return network
 end
 
-function mergeBiasesAndWeigth(bestNetwork, network )
+function mergeBiasesAndWeigth(bestNetwork, network)
     local updatedNetwork = newNetwork()
-    local percentOfBest = network.fitness/bestNetwork.fitness * 0.5
+    local percentOfBest = (network.fitness/bestNetwork.fitness) * 0.4
     if #network.layers ~= 0 then
         for l = 1, #network.layers, 1 do
             updatedNetwork.layers[l]  = newEmptyLayer()
             for i = 1, #network.layers[l].weigth, 1 do
                 updatedNetwork.layers[l].weigth[i] = {}
-                if math.random() < percentOfBest then updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i]
+                if math.random(0, 100) <= 1 then  updatedNetwork.layers[l].biases[i] = math.random() * generateRandomSign()
+                elseif math.random() <= percentOfBest then updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i]
                 else updatedNetwork.layers[l].biases[i] = bestNetwork.layers[l].biases[i]
                 end
                 for j = 1, #network.layers[l].weigth[i], 1 do
-                    if math.random() < percentOfBest then updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
+                    if math.random(0, 100) <= 1 then updatedNetwork.layers[l].weigth[i][j] = math.random()  * generateRandomSign()
+                    elseif math.random() <= percentOfBest then updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
                     else updatedNetwork.layers[l].weigth[i][j] = bestNetwork.layers[l].weigth[i][j]
                     end
                 end
@@ -387,11 +393,13 @@ function mergeBiasesAndWeigth(bestNetwork, network )
     updatedNetwork.outputLayer = newEmptyLayer()
     for i = 1, #network.outputLayer.weigth, 1 do
         updatedNetwork.outputLayer.weigth[i] = {}
-        if math.random() < percentOfBest then updatedNetwork.outputLayer.biases[i] = network.outputLayer.biases[i]
+        if math.random(0, 100) <= 1 then  updatedNetwork.outputLayer.biases[i] = math.random() * generateRandomSign()
+        elseif math.random() <= percentOfBest then updatedNetwork.outputLayer.biases[i] = network.outputLayer.biases[i]
         else updatedNetwork.outputLayer.biases[i] = bestNetwork.outputLayer.biases[i]
         end
         for j = 1, #network.outputLayer.weigth[i], 1 do
-            if math.random() < percentOfBest then updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j]
+            if math.random(0, 100) <= 1 then  updatedNetwork.outputLayer.weigth[i][j] = math.random() * generateRandomSign()
+            elseif math.random() <= percentOfBest then updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j]
             else updatedNetwork.outputLayer.weigth[i][j] = bestNetwork.outputLayer.weigth[i][j]
             end
         end
@@ -625,12 +633,36 @@ end
 
 --SAVING_FILES_MANAGER--
 
+function serialize (o) --(https://www.lua.org/pil/12.1.html)
+    if type(o) == "number" then
+      io.write(o)
+    elseif type(o) == "string" then
+      io.write(string.format("%q", o))
+    elseif type(o) == "table" then
+      io.write("{\n")
+      for k,v in pairs(o) do
+        io.write("  [")
+        serialize(k)
+        io.write("] = ")
+        serialize(v)
+        io.write(",\n")
+      end
+      io.write("}\n")
+    else
+      error("cannot serialize a " .. type(o))
+    end
+  end
+
 function readModel() --! TO DO ASAP @3ps1ll0n
     
 end
 
 function saveModel(population) --! TO DO ASAP @3ps1ll0n
-    
+    local file = assert(io.open(NOM_FICHIER .. ".pop", "w"))
+    io.output(file)
+    io.write(GENRATION .. "\n")
+    serialize(population)
+    io.close(file)
 end
 
 --VARIABLES--
@@ -671,6 +703,7 @@ while true do
     gui.text(20, 90, "Static frame count : " .. staticFrames)
     gui.text(20, 110, "NO_UPGRADES_CYCLE : " .. NO_UPGRADES_CYCLE)
     gui.text(20, 130, "Biases : " .. countBiases(currentNetwork) .. "; Weight : " .. countWeight(currentNetwork) .. "; Input : " .. WIDTH_INPUTS * HEIGHT_INPUTS)
+    gui.text(20, 150, "Pot Max Fitness : " .. FITNESS_WHEN_LEVEL_IS_COMPLETE + (400 * 30 - PLAYED_FRAME))
     --gui.drawRectangle(X_NEURON_ANCHOR, Y_NEURON_ANCHOR, NEURON_DISPLAY_SIZE, NEURON_DISPLAY_SIZE, "black", "white")
     currentNetwork.input = getInputs()
     drawInput(currentNetwork.input)
@@ -690,12 +723,15 @@ while true do
     emu.frameadvance()
     PLAYED_FRAME = PLAYED_FRAME + 1
 
-    if memory.readbyte(0x13E0) == 62 or staticFrames >= MAX_STATIC_FRAMES or isLevelComplete(population.pop[currentBeing]) then
+    local lvlComplete = isLevelComplete()
+
+    if memory.readbyte(0x13E0) == 62 or staticFrames >= MAX_STATIC_FRAMES or lvlComplete > 0 then
         savestate.load(NOM_STATE)
         staticFrames = 0
         if population.pop[currentBeing].fitness < fitness then population.pop[currentBeing].fitness = fitness end
-        if population.maxFitness < fitness then
-            population.maxFitness = fitness
+        if lvlComplete > 0 then population.pop[currentBeing].fitness = lvlComplete end
+        if population.maxFitness < population.pop[currentBeing].fitness then 
+            population.maxFitness = population.pop[currentBeing].fitness
         end
 
         fitness = 0
