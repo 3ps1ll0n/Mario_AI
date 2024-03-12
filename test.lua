@@ -313,8 +313,8 @@ function nextGen(population)
         end
     else 
         for i = 2, POPULATION_SIZE, 1 do
-            if math.random() <= 0.100 then newPop.pop[i] = changeBiasesAndWeight(mergeBiasesAndWeigth(bestNetwork, population.pop[i]), 2, 1)
-            elseif  math.random() <= 0.100 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 1, 1)
+            if math.random() <= 0.100 then newPop.pop[i] = changeBiasesAndWeight(mergeBiasesAndWeigth(bestNetwork, population.pop[i]), 0.5, 0.5)
+            elseif  math.random() <= 0.100 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 0.5, 0.5)
             --elseif i <= POPULATION_SIZE/2 then newPop.pop[i] = changeBiasesAndWeight(bestNetwork, 5, 4)
             --elseif i <= POPULATION_SIZE/(3/4) then newPop.pop[i] = mergeBiasesAndWeigth(bestNetwork, population.pop[i])
             else newPop.pop[i] = mergeBiasesAndWeigth(bestNetwork, population.pop[i]) end
@@ -393,10 +393,11 @@ function mergeBiasesAndWeigth(bestNetwork, network)
     updatedNetwork.outputLayer = newEmptyLayer()
     for i = 1, #network.outputLayer.weigth, 1 do
         updatedNetwork.outputLayer.weigth[i] = {}
-        if math.random(0, 100) <= 1 then  updatedNetwork.outputLayer.biases[i] = math.random() * generateRandomSign()
-        elseif math.random() <= percentOfBest then updatedNetwork.outputLayer.biases[i] = network.outputLayer.biases[i]
-        else updatedNetwork.outputLayer.biases[i] = bestNetwork.outputLayer.biases[i]
-        end
+        --if math.random(0, 100) <= 1 then  updatedNetwork.outputLayer.biases[i] = math.random() * generateRandomSign()
+        --elseif math.random() <= percentOfBest then updatedNetwork.outputLayer.biases[i] = network.outputLayer.biases[i]
+        --else updatedNetwork.outputLayer.biases[i] = bestNetwork.outputLayer.biases[i]
+        --end
+        updatedNetwork.outputLayer.biases[i] = 0
         for j = 1, #network.outputLayer.weigth[i], 1 do
             if math.random(0, 100) <= 1 then  updatedNetwork.outputLayer.weigth[i][j] = math.random() * generateRandomSign()
             elseif math.random() <= percentOfBest then updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j]
@@ -417,9 +418,11 @@ function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to appl
             for i = 1, #network.layers[l].biases, 1 do
                 local mustBeRandomlyChanged = math.random()
                 if mustBeRandomlyChanged <= 0.100 then
-                    updatedNetwork.layers[l].biases[i] = (math.random(1, 100) * 0.005) * generateRandomSign()
+                    updatedNetwork.layers[l].biases[i] = (math.random(1, 100) * 0.01) * generateRandomSign()
+                elseif mustBeRandomlyChanged < 0.250 then 
+                    updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i] + ((math.random(1, 100) * 0.01 * biasesRange) * generateRandomSign())
+                else updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i]
                 end
-                updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i] + ((math.random(1, 100) * 0.01 * biasesRange) * generateRandomSign())
             end
         end
         for l = 1,#network.layers, 1 do
@@ -429,8 +432,10 @@ function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to appl
                     local mustBeRandomlyChanged = math.random()
                     if mustBeRandomlyChanged <= 0.100 then
                         updatedNetwork.layers[l].weigth[i][j] = (math.random(1, 100) * 0.01) * generateRandomSign()
+                    elseif mustBeRandomlyChanged < 0.250 then 
+                        updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * generateRandomSign())
+                    else updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
                     end
-                    updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * generateRandomSign())
                 end
             end
         end
@@ -444,8 +449,9 @@ function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to appl
 
             if mustBeRandomlyChanged <= 0.100 then
                 updatedNetwork.outputLayer.weigth[i][j] = (math.random(1, 100) * 0.005) * generateRandomSign()
-            else
+            elseif mustBeRandomlyChanged < 0.250 then 
                 updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * generateRandomSign())
+            else updatedNetwork.outputLayer.weigth[i][j] = network.outputLayer.weigth[i][j]
             end
             
          end
