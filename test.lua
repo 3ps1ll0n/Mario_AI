@@ -53,6 +53,7 @@ PLAYED_FRAME = 0
 
 function newEmptyPopulation()
     local p = {}
+    p.currentGen = 0;
     p.pop = {}
     p.maxFitness = 0
 
@@ -377,12 +378,12 @@ function mergeBiasesAndWeigth(bestNetwork, network)
             updatedNetwork.layers[l]  = newEmptyLayer()
             for i = 1, #network.layers[l].weigth, 1 do
                 updatedNetwork.layers[l].weigth[i] = {}
-                if math.random(0, 100) <= 1 then  updatedNetwork.layers[l].biases[i] = math.random() * generateRandomSign()
+                if math.random(0, 1000) <= 1 then  updatedNetwork.layers[l].biases[i] = math.random() * generateRandomSign()
                 elseif math.random() <= percentOfBest then updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i]
                 else updatedNetwork.layers[l].biases[i] = bestNetwork.layers[l].biases[i]
                 end
                 for j = 1, #network.layers[l].weigth[i], 1 do
-                    if math.random(0, 100) <= 1 then updatedNetwork.layers[l].weigth[i][j] = math.random()  * generateRandomSign()
+                    if math.random(0, 1000) <= 1 then updatedNetwork.layers[l].weigth[i][j] = math.random()  * generateRandomSign()
                     elseif math.random() <= percentOfBest then updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
                     else updatedNetwork.layers[l].weigth[i][j] = bestNetwork.layers[l].weigth[i][j]
                     end
@@ -417,9 +418,9 @@ function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to appl
             updatedNetwork.layers[l]  = newEmptyLayer()
             for i = 1, #network.layers[l].biases, 1 do
                 local mustBeRandomlyChanged = math.random()
-                if mustBeRandomlyChanged <= 0.100 then
+                if mustBeRandomlyChanged <= 0.005 then
                     updatedNetwork.layers[l].biases[i] = (math.random(1, 100) * 0.01) * generateRandomSign()
-                elseif mustBeRandomlyChanged < 0.250 then 
+                elseif mustBeRandomlyChanged < 0.001 then 
                     updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i] + ((math.random(1, 100) * 0.01 * biasesRange) * generateRandomSign())
                 else updatedNetwork.layers[l].biases[i] = network.layers[l].biases[i]
                 end
@@ -430,9 +431,9 @@ function changeBiasesAndWeight(network, biasesRange, weightRange) -- Use to appl
                 updatedNetwork.layers[l].weigth[i] = {}
                 for j = 1, #network.layers[l].weigth[i], 1 do
                     local mustBeRandomlyChanged = math.random()
-                    if mustBeRandomlyChanged <= 0.100 then
+                    if mustBeRandomlyChanged <= 0.005 then
                         updatedNetwork.layers[l].weigth[i][j] = (math.random(1, 100) * 0.01) * generateRandomSign()
-                    elseif mustBeRandomlyChanged < 0.250 then 
+                    elseif mustBeRandomlyChanged < 0.001 then 
                         updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j] + ((math.random(1, 100) * 0.01 * weightRange) * generateRandomSign())
                     else updatedNetwork.layers[l].weigth[i][j] = network.layers[l].weigth[i][j]
                     end
@@ -658,17 +659,118 @@ function serialize (o) --(https://www.lua.org/pil/12.1.html)
       error("cannot serialize a " .. type(o))
     end
   end
+function file_exists(name)
+    local f = io.open(name, "r")
+    return f ~= nil and io.close(f)
+end  
+
+local function exportstring( s )
+    return string.format("%q", s)
+ end
+
+function table.save(  tbl,filename ) --(http://lua-users.org/wiki/SaveTableToFile)
+    local charS,charE = "   ","\n"
+    local file,err = io.open( filename, "wb" )
+    if err then return err end
+
+    -- initiate variables for save procedure
+    local tables,lookup = { tbl },{ [tbl] = 1 }
+    file:write( "return {"..charE )
+
+    for idx,t in ipairs( tables ) do
+       file:write( "-- Table: {"..idx.."}"..charE )
+       file:write( "{"..charE )
+       local thandled = {}
+
+       for i,v in ipairs( t ) do
+          thandled[i] = true
+          local stype = type( v )
+          -- only handle value
+          if stype == "table" then
+             if not lookup[v] then
+                table.insert( tables, v )
+                lookup[v] = #tables
+             end
+             file:write( charS.."{"..lookup[v].."},"..charE )
+          elseif stype == "string" then
+             file:write(  charS..exportstring( v )..","..charE )
+          elseif stype == "number" then
+             file:write(  charS..tostring( v )..","..charE )
+          end
+       end
+
+        for i,v in pairs( t ) do
+          -- escape handled values
+            if (not thandled[i]) then
+          
+            local str = ""
+            local stype = type( i )
+             -- handle index
+             if stype == "table" then
+                if not lookup[i] then
+                   table.insert( tables,i )
+                   lookup[i] = #tables
+                end
+                str = charS.."[{"..lookup[i].."}]="
+             elseif stype == "string" then
+                str = charS.."["..exportstring( i ).."]="
+             elseif stype == "number" then
+                str = charS.."["..tostring( i ).."]="
+             end
+          
+             if str ~= "" then
+                stype = type( v )
+                -- handle value
+                if stype == "table" then
+                   if not lookup[v] then
+                      table.insert( tables,v )
+                      lookup[v] = #tables
+                   end
+                   file:write( str.."{"..lookup[v].."},"..charE )
+                elseif stype == "string" then
+                   file:write( str..exportstring( v )..","..charE )
+                elseif stype == "number" then
+                   file:write( str..tostring( v )..","..charE )
+                end
+             end
+          end
+       end
+       file:write( "},"..charE )
+    end
+    file:write( "}" )
+    file:close()
+ end
+ 
+ --// The Load Function
+ function table.load( sfile )  --(http://lua-users.org/wiki/SaveTableToFile)
+    local ftables,err = loadfile( sfile )
+    if err then return _,err end
+    local tables = ftables()
+    for idx = 1,#tables do
+       local tolinki = {}
+       for i,v in pairs( tables[idx] ) do
+          if type( v ) == "table" then
+             tables[idx][i] = tables[v[1]]
+          end
+          if type( i ) == "table" and tables[i[1]] then
+             table.insert( tolinki,{ i,tables[i[1]] } )
+          end
+       end
+       -- link indices
+       for _,v in ipairs( tolinki ) do
+          tables[idx][v[2]],tables[idx][v[1]] =  tables[idx][v[1]],nil
+       end
+    end
+    return tables[1]
+ end
 
 function readModel() --! TO DO ASAP @3ps1ll0n
-    
+    console.log(" : " .. NOM_FICHIER .. ".pop")
+    return table.load(NOM_FICHIER .. ".pop")
 end
 
 function saveModel(population) --! TO DO ASAP @3ps1ll0n
-    local file = assert(io.open(NOM_FICHIER .. ".pop", "w"))
-    io.output(file)
-    io.write(GENRATION .. "\n")
-    serialize(population)
-    io.close(file)
+    table.save(population, NOM_FICHIER .. ".pop")
 end
 
 --VARIABLES--
@@ -688,8 +790,12 @@ local staticFrames = 0
 math.randomseed(os.time())
 
 console.log('AI STARTED')
-console.log(os.clock())
+--console.log(os.clock())
 savestate.load(NOM_STATE)
+if file_exists(NOM_FICHIER .. ".pop") then 
+    population = readModel()
+    GENRATION = population.currentGen
+end
 
 while true do
     staticFrames = staticFrames + 1
@@ -735,6 +841,7 @@ while true do
         savestate.load(NOM_STATE)
         staticFrames = 0
         if population.pop[currentBeing].fitness < fitness then population.pop[currentBeing].fitness = fitness end
+        population.currentGen = GENRATION;
         if lvlComplete > 0 then population.pop[currentBeing].fitness = lvlComplete end
         if population.maxFitness < population.pop[currentBeing].fitness then 
             population.maxFitness = population.pop[currentBeing].fitness
